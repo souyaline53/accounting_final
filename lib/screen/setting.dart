@@ -3,7 +3,7 @@ import '../model/accounting_models.dart';
 
 class ProductSettingsScreen extends StatelessWidget {
   final List<Product> products;
-  final Function(String, int, List<Topping>) onAdd;
+  final Function(String, int, String, List<Topping>) onAdd;
   final Function(int) onRemove;
 
   const ProductSettingsScreen({super.key, required this.products, required this.onAdd, required this.onRemove});
@@ -20,7 +20,7 @@ class ProductSettingsScreen extends StatelessWidget {
           return Card(
             child: ListTile(
               title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('¥${p.price} / トッピング: ${p.toppings.length}種'),
+              subtitle: Text('[${p.category}] ¥${p.price} / トッピング: ${p.toppings.length}種'),
               trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => onRemove(index)),
             ),
           );
@@ -38,6 +38,7 @@ class ProductSettingsScreen extends StatelessWidget {
   void _showAddDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
+    final categoryCtrl = TextEditingController();
     List<Topping> tempToppings = [];
 
     showDialog(
@@ -51,6 +52,8 @@ class ProductSettingsScreen extends StatelessWidget {
               children: [
                 TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '商品名')),
                 TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: '価格'), keyboardType: TextInputType.number),
+                // ... ダイアログ内にカテゴリ入力用 TextField を追加
+                TextField(controller: categoryCtrl, decoration: const InputDecoration(labelText: 'カテゴリ (例: メイン, 飲み物)')),
                 const Divider(height: 30),
                 const Text('トッピング設定', style: TextStyle(fontWeight: FontWeight.bold)),
                 ...tempToppings.asMap().entries.map((entry) => Row(
@@ -72,7 +75,12 @@ class ProductSettingsScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 if (nameCtrl.text.isNotEmpty) {
-                  onAdd(nameCtrl.text, int.tryParse(priceCtrl.text) ?? 0, tempToppings);
+                  onAdd(
+                      nameCtrl.text,
+                      int.tryParse(priceCtrl.text) ?? 0,
+                      categoryCtrl.text.isEmpty ? '未分類' : categoryCtrl.text,
+                      tempToppings
+                  );                  
                   Navigator.pop(ctx);
                 }
               },

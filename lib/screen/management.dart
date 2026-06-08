@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
 import '../model/accounting_models.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
@@ -23,31 +22,56 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   int get _totalAmount => widget.history.fold(0, (sum, r) => sum + r.totalAmount);
 
   Future<void> _exportToExcel() async {
-    var excel = Excel.createExcel();
-    Sheet sheetObject = excel['Sheet1'];
+    try {
+      var excel = Excel.createExcel();
+      Sheet sheetObject = excel['Sheet1'];
 
-    sheetObject.appendRow([
-      TextCellValue('日時'),
-      TextCellValue('内容'),
-      TextCellValue('合計金額'),
-    ]);
-
-    for (var r in widget.history) {
       sheetObject.appendRow([
-        TextCellValue(DateFormat('yyyy/MM/dd HH:mm:ss').format(r.timestamp)),
-        TextCellValue(r.itemsSummary.join(', ')),
-        IntCellValue(r.totalAmount),
+        TextCellValue('日時'),
+        TextCellValue('内容'),
+        TextCellValue('合計金額'),
       ]);
-    }
-    sheetObject.appendRow([TextCellValue(''), TextCellValue('累計総売上'), IntCellValue(_totalAmount)]);
 
-    final directory = await getTemporaryDirectory();
-    final String filePath = '${directory.path}/学祭売上全履歴_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-    final List<int>? fileBytes = excel.save();
+      for (var r in widget.history) {
+        sheetObject.appendRow([
+          TextCellValue(DateFormat('yyyy/MM/dd HH:mm:ss').format(r.timestamp)),
+          TextCellValue(r.itemsSummary.join(', ')),
+          IntCellValue(r.totalAmount),
+        ]);
+      }
+      sheetObject.appendRow([
+        TextCellValue(''),
+        TextCellValue('累計総売上'),
+        IntCellValue(_totalAmount)
+      ]);
 
-    if (fileBytes != null) {
-      File(filePath)..createSync(recursive: true)..writeAsBytesSync(fileBytes);
-      await Share.shareXFiles([XFile(filePath)], text: '売上履歴レポート(Excel)');
+      if (kIsWeb) {
+        final List<int>? fileBytes = excel.save();
+        if (fileBytes != null) {
+          final blob = html.Blob([fileBytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          final url = html.Url.createObjectUrlFromBlob(blob);
+          final String fileName = '学祭売上履歴_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
+          
+          final anchor = html.AnchorElement(href: url)
+            ..setAttribute("download", fileName)
+            ..click();
+          
+          html.Url.revokeObjectUrl(url);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Excelファイルをダウンロードしました。')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Export Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('出力に失敗しました: $e')),
+        );
+      }
     }
   }
 
@@ -110,7 +134,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'management_fab', // 固有のタグ
+        heroTag: 'management_fab',
         onPressed: widget.history.isEmpty ? null : _exportToExcel,
         label: const Text('Excel出力'),
         icon: const Icon(Icons.description),

@@ -56,10 +56,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final DocumentReference _counterRef = FirebaseFirestore.instance.collection('system').doc('counter');
 
   // 商品追加メソッド
-  Future<void> _addProduct(String name, int price, List<Topping> toppings) async {
+  Future<void> _addProduct(String name, int price, String category, List<Topping> toppings) async {
     await _productsRef.add({
       'name': name,
       'price': price,
+      'category': category, // 追加
       'toppings': toppings.map((t) => t.toMap()).toList(),
     });
   }
@@ -70,15 +71,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   // 会計確定処理 (整理券番号のループ採番 & 提供状況初期化)
-  Future<int> _completeTransaction(List<Product> products) async {
+  Future<int?> _completeTransaction(List<Product> products, {bool issueQueueNumber = true}) async {
     return FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot counterSnap = await transaction.get(_counterRef);
-      int nextNum = 1;
-      if (counterSnap.exists) {
-        int lastNum = (counterSnap.data() as Map<String, dynamic>)['lastQueueNumber'] ?? 0;
-        nextNum = (lastNum % 20) + 1;
+      int? nextNum;
+      if (issueQueueNumber) {
+        DocumentSnapshot counterSnap = await transaction.get(_counterRef);
+        nextNum = 1;
+        if (counterSnap.exists) {
+          int lastNum = (counterSnap.data() as Map<String, dynamic>)['lastQueueNumber'] ?? 0;
+          nextNum = (lastNum % 20) + 1;
+        }
+        transaction.set(_counterRef, {'lastQueueNumber': nextNum});
       }
-      transaction.set(_counterRef, {'lastQueueNumber': nextNum});
 
       List<String> items = [];
       int total = 0;
@@ -101,8 +105,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           'timestamp': FieldValue.serverTimestamp(),
           'itemsSummary': items,
           'totalAmount': total,
-          'queueNumber': nextNum,
-          'isServed': false, // 初期状態は未提供
+          'queueNumber': nextNum ?? 0,
+          'isServed': !issueQueueNumber, // 整理券なしの場合は即提供済みとする
         });
       }
 
@@ -130,16 +134,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 products: products,
                 onComplete: _completeTransaction,
               ),
-              ServeScreen(
-                history: history,
-              ),
+              // クラス名が正しいか、serve.dart ファイル内で 'class ServeScreen ...' となっているか確認してください
+              ServeScreen(history: history),
               SalesHistoryScreen(
                 history: history,
                 onDelete: (id) => _historyRef.doc(id).delete(),
               ),
               ProductSettingsScreen(
                 products: products,
-                onAdd: _addProduct,
+                onAdd: _addProduct, // 引数の数が合ったため、エラーが消えます
                 onRemove: (index) => _removeProduct(products[index].id),
               ),
             ];

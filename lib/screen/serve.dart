@@ -16,20 +16,45 @@ class ServeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 未提供のものを優先的に、新しい順にソート
+    // 1. 未提供 (isServed: false) を優先し、その中では古い順 (timestamp 昇順) にソート
     final sortedHistory = List<SaleRecord>.from(history)
       ..sort((a, b) {
-        if (a.isServed == b.isServed) {
+        // 未提供 (false) を提供済み (true) より先に持ってくる
+        if (a.isServed != b.isServed) {
+          return a.isServed ? 1 : -1;
+        }
+        
+        // isServed の状態が同じ場合
+        if (!a.isServed) {
+          // 未提供同士：timestamp が古い順（昇順）＝ 待たせている順
+          return a.timestamp.compareTo(b.timestamp);
+        } else {
+          // 提供済み同士：timestamp が新しい順（降順）＝ 最近出した順
           return b.timestamp.compareTo(a.timestamp);
         }
-        return a.isServed ? 1 : -1;
       });
+
+    // 2. 未提供の数をカウント
+    final waitingCount = history.where((r) => !r.isServed).length;
 
     // 最大20件に制限
     final displayHistory = sortedHistory.take(20).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('提供管理')),
+      appBar: AppBar(
+        title: const Text('提供管理'),
+        actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(
+                '未提供: $waitingCount件',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          )
+        ],
+      ),
       body: displayHistory.isEmpty
           ? const Center(child: Text('注文履歴がありません'))
           : ListView.builder(
@@ -67,44 +92,23 @@ class ServeScreen extends StatelessWidget {
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            Text(
-                              DateFormat('HH:mm').format(record.timestamp),
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
+                            Text(DateFormat('HH:mm').format(record.timestamp)),
                           ],
                         ),
                         const SizedBox(height: 12),
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade700,
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${record.queueNumber}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.green.shade700,
+                              child: Text('${record.queueNumber}',
+                                  style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: record.itemsSummary.map((item) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    item,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                                  ),
-                                )).toList(),
+                                children: record.itemsSummary.map((item) => Text(item, style: const TextStyle(fontSize: 16))).toList(),
                               ),
                             ),
                           ],
@@ -117,12 +121,8 @@ class ServeScreen extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: record.isServed ? Colors.grey.shade300 : Colors.green,
                               foregroundColor: record.isServed ? Colors.black54 : Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            child: Text(
-                              record.isServed ? '未提供に戻す' : '提供完了にする',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                            child: Text(record.isServed ? '未提供に戻す' : '提供完了にする', style: const TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],

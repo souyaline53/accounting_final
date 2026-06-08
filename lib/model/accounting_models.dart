@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Topping {
   String name;
   int price;
-  int currentOrderCount; // UI上での個数保持用
+  int currentOrderCount;
 
   Topping({
     required this.name,
@@ -30,13 +30,15 @@ class Product {
   String id;
   String name;
   int price;
-  int currentOrderCount; // 商品自体の注文数
+  String category;
+  int currentOrderCount;
   List<Topping> toppings;
 
   Product({
     this.id = '',
     required this.name,
     required this.price,
+    this.category = '未分類',
     this.currentOrderCount = 0,
     this.toppings = const [],
   });
@@ -45,6 +47,7 @@ class Product {
     return {
       'name': name,
       'price': price,
+      'category': category,
       'toppings': toppings.map((t) => t.toMap()).toList(),
     };
   }
@@ -56,9 +59,10 @@ class Product {
       id: doc.id,
       name: data['name'] ?? '',
       price: data['price'] ?? 0,
-      toppings: toppingsData != null
-          ? toppingsData.map((t) => Topping.fromMap(Map<String, dynamic>.from(t))).toList()
-          : [],
+      category: data['category'] ?? '未分類',
+      toppings: (data['toppings'] as List? ?? [])
+          .map((t) => Topping.fromMap(Map<String, dynamic>.from(t)))
+          .toList(),
     );
   }
 }
@@ -69,7 +73,7 @@ class SaleRecord {
   final List<String> itemsSummary;
   final int totalAmount;
   final int queueNumber;
-  final bool isServed; // 提供状況を追加
+  final bool isServed;
 
   SaleRecord({
     required this.id,

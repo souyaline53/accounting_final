@@ -103,6 +103,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           onTap: (_receivedAmount >= _totalAmount && !_isLoading)
                               ? () async {
                             setState(() => _isLoading = true);
+
+
+
                             try {
                               // 会計確定と整理券番号の取得
                               int qNum = await widget.onComplete();
